@@ -1,23 +1,26 @@
 const templates = [
   {
     title: "React Hydration Mismatch",
-    desc: "Server and client HTML mismatch"
+    desc: "Server and client HTML mismatch",
   },
   {
     title: "Stripe Webhook 500",
-    desc: "Webhook endpoint returning errors"
+    desc: "Webhook endpoint returning errors",
   },
   {
     title: "Node Crash",
-    desc: "Unexpected server termination"
+    desc: "Unexpected server termination",
   },
   {
     title: "PostgreSQL Deadlock",
-    desc: "Database lock conflict"
+    desc: "Database lock conflict",
   },
 ];
 
-export default function TemplateCards() {
+export default function TemplateCards({
+  selectedTemplate,
+  setSelectedTemplate,
+}) {
   return (
     <div>
       <h2 className="text-white text-xl font-semibold mb-4">
@@ -28,17 +31,24 @@ export default function TemplateCards() {
         {templates.map((item) => (
           <div
             key={item.title}
-            className="
+            onClick={() =>
+              setSelectedTemplate(item.title)
+            }
+            className={`
               bg-zinc-900
               border
-              border-zinc-800
               rounded-2xl
               p-5
-              hover:border-violet-500
-              hover:-translate-y-1
               transition
               cursor-pointer
-            "
+              hover:-translate-y-1
+
+              ${
+                selectedTemplate === item.title
+                  ? "border-violet-500 ring-2 ring-violet-500"
+                  : "border-zinc-800 hover:border-violet-500"
+              }
+            `}
           >
             <h3 className="text-white font-semibold">
               {item.title}
