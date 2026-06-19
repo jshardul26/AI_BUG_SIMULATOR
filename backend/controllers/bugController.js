@@ -42,7 +42,6 @@ const analyzeBug = async (req, res) => {
             success: true,
             message: "Bug analyzed successfully",
             parsedError,
-            aiResponse,
             structuredResponse
         });
 
