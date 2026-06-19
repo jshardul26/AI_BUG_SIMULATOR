@@ -10,6 +10,7 @@ import AIReport from "../components/Workspace/AIReport";
 import UploadZone from "../components/Workspace/UploadZone";
 import TemplateCards from "../components/Workspace/TemplateCards";
 import ReproduceButton from "../components/Workspace/ReproduceButton";
+import ClearWorkspaceButton from "../components/Workspace/ClearWorkspaceButton";
 
 export default function Workspace() {
   const [language, setLanguage] = useState("javascript");
@@ -27,17 +28,21 @@ export default function Workspace() {
   const [selectedTemplate, setSelectedTemplate] =
     useState("React Hydration Mismatch");
 
-  // NEW: analysis response from service
-  const [analysisData, setAnalysisData] = useState(null);
+  const [analysisData, setAnalysisData] =
+    useState(null);
 
-  // Auto-save code
   useEffect(() => {
-    localStorage.setItem("bugforge_code", code);
+    localStorage.setItem(
+      "bugforge_code",
+      code
+    );
   }, [code]);
 
-  // Auto-save logs
   useEffect(() => {
-    localStorage.setItem("bugforge_logs", errorLog);
+    localStorage.setItem(
+      "bugforge_logs",
+      errorLog
+    );
   }, [errorLog]);
 
   return (
@@ -85,14 +90,27 @@ export default function Workspace() {
         </>
       )}
 
-      <UploadZone />
+      <UploadZone
+        setErrorLog={setErrorLog}
+      />
 
       <TemplateCards
         selectedTemplate={selectedTemplate}
-        setSelectedTemplate={setSelectedTemplate}
+        setSelectedTemplate={
+          setSelectedTemplate
+        }
       />
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-4">
+        <ClearWorkspaceButton
+          setCode={setCode}
+          setErrorLog={setErrorLog}
+          setShowResult={setShowResult}
+          setSelectedTemplate={
+            setSelectedTemplate
+          }
+        />
+
         <ReproduceButton
           setShowResult={setShowResult}
           setAnalysisData={setAnalysisData}

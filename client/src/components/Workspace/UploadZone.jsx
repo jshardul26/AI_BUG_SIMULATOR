@@ -1,38 +1,32 @@
-export default function UploadZone() {
-  return (
-    <div className="
-      border-2
-      border-dashed
-      border-zinc-700
-      rounded-2xl
-      p-12
-      bg-zinc-900
-      text-center
-      hover:border-violet-500
-      transition
-    ">
-      <div className="text-5xl mb-4">
-        📂
-      </div>
+export default function UploadZone({
+  setErrorLog,
+}) {
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
 
-      <h2 className="text-white text-2xl font-semibold">
-        Drag & Drop Files
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      setErrorLog(e.target.result);
+    };
+
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+      <h2 className="text-white text-xl font-semibold mb-3">
+        Upload Error Logs
       </h2>
 
-      <p className="text-zinc-400 mt-3">
-        Logs, HAR files, crash reports or screenshots
-      </p>
-
-      <button className="
-        mt-5
-        px-4
-        py-2
-        rounded-lg
-        bg-zinc-800
-        text-white
-      ">
-        Browse Files
-      </button>
+      <input
+        type="file"
+        accept=".txt,.log"
+        onChange={handleFileUpload}
+        className="text-white"
+      />
     </div>
   );
 }
