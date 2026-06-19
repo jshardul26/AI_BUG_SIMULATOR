@@ -11,43 +11,33 @@ function parseErrorLog(errorLog) {
         probableCause: null
     };
 
-    // 1. Extract Error Type (works for JS, Python, Java)
-    // Examples: TypeError, ReferenceError, AttributeError, NullPointerException
-    const typeMatch = errorLog.match(/([a-zA-Z]+Error|Exception|Error)/);
+    const lower = errorLog.toLowerCase();
+
+    // 1. Error Type
+    const typeMatch = errorLog.match(/([a-zA-Z]+Error|Exception|NullPointerException)/);
     if (typeMatch) {
-        result.errorType = typeMatch[0];
+        result.errorType = typeMatch[1];
     }
 
-    // 2. Extract quoted words ('map', "data", etc.)
+    // 2. Keyword (function/variable in quotes OR function call)
     const quoteMatch = errorLog.match(/'([^']+)'|"([^"]+)"/);
-    if (quoteMatch) {
-        result.keyword = quoteMatch[1] || quoteMatch[2];
-    }
-
-    // 3. Detect null/undefined/None (universal failure pattern)
-    if (
-        errorLog.toLowerCase().includes("undefined") ||
-        errorLog.toLowerCase().includes("null") ||
-        errorLog.toLowerCase().includes("none")
-    ) {
-        result.probableCause = "Using null/undefined/None value in execution";
-    }
-
-    // 4. Generic method/function detection (ANY language)
-    // captures words like: map(), append(), render(), fetchData()
     const methodMatch = errorLog.match(/\b([a-zA-Z_][a-zA-Z0-9_]*)\b(?=\s*\()/);
-    if (methodMatch && !result.keyword) {
-        result.keyword = methodMatch[1];
+
+    result.keyword = quoteMatch?.[1] || quoteMatch?.[2] || methodMatch?.[1] || null;
+
+    // 3. Cause detection (priority-based)
+    if (
+        lower.includes("null pointer") ||
+        lower.includes("cannot read") ||
+        lower.includes("undefined") ||
+        lower.includes("none type")
+    ) {
+        result.probableCause = "Trying to use something that is empty or not available";
     }
 
-    // 5. Common crash pattern detection (language independent logic)
-    if (
-        errorLog.toLowerCase().includes("cannot read") ||
-        errorLog.toLowerCase().includes("undefined") ||
-        errorLog.toLowerCase().includes("null pointer") ||
-        errorLog.toLowerCase().includes("none type")
-    ) {
-        result.probableCause = "Accessing property or method on invalid object";
+    // 4. Override only if more specific pattern found
+    if (lower.includes("cannot read")) {
+        result.probableCause = "Code is trying to access property of missing value";
     }
 
     return result;
