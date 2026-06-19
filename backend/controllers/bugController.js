@@ -1,8 +1,10 @@
 const { validateBugRequest } = require("../utils/validator");
 const { parseErrorLog } = require("../utils/logParser");
 const { buildBugAnalysisPrompt } = require("../utils/promptBuilder");
+const { generateBugSolution } = require("../services/aiService");
+const { parseAIResponse } = require("../utils/responseParser");
 
-const analyzeBug = (req, res) => {
+const analyzeBug = async (req, res) => {
 
     console.log("Analyze Bug API called");
 
@@ -18,24 +20,40 @@ const analyzeBug = (req, res) => {
         });
     }
 
-    // STEP 2: PARSE ERROR LOG
-    const parsedError = parseErrorLog(errorLog);
+    try {
 
-    // STEP 3: BUILD AI PROMPT
-    const aiPrompt = buildBugAnalysisPrompt({
-        code,
-        errorLog,
-        language,
-        parsedError
-    });
+        // STEP 2: PARSE ERROR LOG
+        const parsedError = parseErrorLog(errorLog);
 
-    // STEP 4: RETURN RESPONSE (for now we just return prompt)
-    return res.json({
-        success: true,
-        message: "Bug processed successfully",
-        parsedError,
-        aiPrompt
-    });
+        // STEP 3: BUILD AI PROMPT
+        const aiPrompt = buildBugAnalysisPrompt({
+            code,
+            errorLog,
+            language,
+            parsedError
+        });
+
+        const aiResponse = await generateBugSolution(aiPrompt);
+
+        const structuredResponse = parseAIResponse(aiResponse);
+
+        // STEP 5: RETURN FINAL RESPONSE
+        return res.json({
+            success: true,
+            message: "Bug analyzed successfully",
+            parsedError,
+            aiResponse
+        });
+
+    } catch (error) {
+        console.error("Controller Error:", error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
 };
 
 module.exports = {
