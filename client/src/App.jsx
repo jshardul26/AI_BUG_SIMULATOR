@@ -8,7 +8,6 @@ import Workspace from "./pages/Workspace";
 import AIAnalysis from "./pages/AIAnalysis";
 import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
-import Team from "./pages/Team";
 import Playground from "./pages/Playground";
 
 function App() {
@@ -26,7 +25,6 @@ function App() {
             <Route path="/analysis" element={<AIAnalysis />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/analytics" element={<Analytics />} />
-            <Route path="/team" element={<Team />} />
             <Route path="/playground" element={<Playground />} />
           </Routes>
         </div>
