@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 
 const navItems = [
-  { path: "/", label: "Dashboard", icon: "⊞" },
+  { path: "/dashboard", label: "Dashboard", icon: "⊞" },
   { path: "/workspace", label: "Workspace", icon: "⌨" },
   { path: "/analysis", label: "AI Analysis", icon: "🧠" },
   { path: "/reports", label: "Reports", icon: "📄" },
