@@ -1,15 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
+import { LayoutDashboard, Code2, Brain, FileText, PlayCircle, BarChart2 } from "lucide-react";
 
 const navItems = [
-  { path: "/dashboard", label: "Dashboard", icon: "⊞" },
-  { path: "/workspace", label: "Workspace", icon: "⌨" },
-  { path: "/analysis", label: "AI Analysis", icon: "🧠" },
-  { path: "/reports", label: "Reports", icon: "📄" },
-  { path: "/playground", label: "Playground", icon: "▶" },
-  { path: "/analytics", label: "Analytics", icon: "📊" },
-  
+  { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={16} /> },
+  { path: "/workspace", label: "Workspace", icon: <Code2 size={16} /> },
+  { path: "/analysis", label: "AI Analysis", icon: <Brain size={16} /> },
+  { path: "/reports", label: "Reports", icon: <FileText size={16} /> },
+  { path: "/playground", label: "Playground", icon: <PlayCircle size={16} /> },
+  { path: "/analytics", label: "Analytics", icon: <BarChart2 size={16} /> },
 ];
-
 export default function Sidebar() {
   const location = useLocation();
 
