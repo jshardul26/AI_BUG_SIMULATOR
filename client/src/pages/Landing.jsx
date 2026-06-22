@@ -2,32 +2,31 @@ import { useNavigate } from "react-router-dom";
 
 const features = [
   {
-    icon: "🧠",
     title: "AI Root Cause Analysis",
     description: "Instantly identifies the exact root cause of any bug using advanced AI models.",
   },
   {
-    icon: "📋",
+    
     title: "Smart Log Parsing",
     description: "Automatically extracts error types, stack traces and keywords from raw logs.",
   },
   {
-    icon: "🔷",
+    
     title: "Visual Flowcharts",
     description: "Converts complex bug flows into clean, easy to understand visual diagrams.",
   },
   {
-    icon: "⚡",
+    
     title: "Lightning Fast",
     description: "Get structured debugging insights in seconds, not hours.",
   },
   {
-    icon: "🃏",
+    
     title: "Flashcard Learning",
     description: "Learn from your bugs with auto-generated flashcards for each error.",
   },
   {
-    icon: "📊",
+    
     title: "Analytics Dashboard",
     description: "Track bug trends, severity distribution and team performance over time.",
   },
@@ -84,7 +83,8 @@ export default function Landing() {
 
         <div className="relative z-10">
           <span className="inline-block bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs px-4 py-1.5 rounded-full mb-6">
-            🚀 AI Powered Bug Reproduction Engine
+            
+           AI Powered Bug Reproduction Engine
           </span>
 
           <h1 className="text-5xl sm:text-6xl font-bold text-white leading-tight mb-6 max-w-4xl">
