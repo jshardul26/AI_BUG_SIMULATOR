@@ -1,8 +1,6 @@
 const express = require("express");
-
 const router = express.Router();
-
-const { analyzeBug } = require("../controllers/bugController");
+const { analyzeBug, getBugHistory, getStats } = require("../controllers/bugController");
 
 router.get("/test", (req, res) => {
     res.json({
@@ -12,5 +10,7 @@ router.get("/test", (req, res) => {
 });
 
 router.post("/analyze-bug", analyzeBug);
+router.get("/bug-history", getBugHistory);
+router.get("/stats", getStats);
 
 module.exports = router;
