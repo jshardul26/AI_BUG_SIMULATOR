@@ -2,30 +2,42 @@ import { useState } from "react";
 import PlaygroundInput from "../components/Playground/PlaygroundInput";
 import PromptExamples from "../components/Playground/PromptExamples";
 
-const mockOutput = {
-  rootCause: "Calling .map() on undefined — API response returned null instead of an array.",
-  fix: "Add a fallback: const list = response.data ?? [];",
-  steps: [
-    "Check API response before using it",
-    "Add null/undefined guard before .map()",
-    "Use optional chaining or default values",
-  ],
-  severity: "High",
-};
-
 export default function Playground() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [output, setOutput] = useState(null);
 
-  const handleRun = () => {
+  const handleRun = async () => {
     if (!input.trim()) return;
     setLoading(true);
     setOutput(null);
-    setTimeout(() => {
+    try {
+      const response = await fetch("http://localhost:5000/analyze-bug", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: "",
+          errorLog: input,
+          language: "JavaScript",
+        }),
+      });
+      const data = await response.json();
+      setOutput({
+        rootCause: data.structuredResponse?.rootCause || data.parsedError?.probableCause,
+        fix: data.structuredResponse?.possibleFix || "Check the error details above",
+        steps: data.structuredResponse?.reproductionSteps || [],
+        severity: data.structuredResponse?.severity || "Medium",
+      });
+    } catch (error) {
+      setOutput({
+        rootCause: "Could not connect to backend",
+        fix: "Make sure backend is running on port 5000",
+        steps: [],
+        severity: "Unknown",
+      });
+    } finally {
       setLoading(false);
-      setOutput(mockOutput);
-    }, 2000);
+    }
   };
 
   return (
