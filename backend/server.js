@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const bugRoutes = require("./routes/bugRoutes");
+const imageRoutes = require("./routes/imageRoutes");
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/", bugRoutes);
+app.use("/api/image", imageRoutes);
 
 // Start Server
 const PORT = process.env.PORT;

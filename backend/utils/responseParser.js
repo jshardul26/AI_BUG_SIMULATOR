@@ -9,6 +9,7 @@ function parseAIResponse(aiText) {
         console.error("JSON Parse Error:", error.message);
 
         return {
+            bugPattern: null,
             rootCause: null,
             flashcards: [],
             steps: [],
