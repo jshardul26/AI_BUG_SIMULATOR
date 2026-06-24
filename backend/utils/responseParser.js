@@ -13,7 +13,10 @@ function parseAIResponse(aiText) {
             flashcards: [],
             steps: [],
             fix: null,
+            correctedCode: null,
             flowchart: [],
+            quiz: [],
+            learningOutcome: null,
             parsingError: true
         };
     }
