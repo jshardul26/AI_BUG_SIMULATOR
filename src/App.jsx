@@ -1,35 +1,12 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useRef, useState } from 'react';
 import ReactFlow, { Background, Controls, MarkerType } from 'reactflow';
 import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
 import {
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  BookOpen,
-  Bot,
-  BrainCircuit,
-  CheckCircle2,
-  ChevronRight,
-  Clock3,
-  Code2,
-  Database,
-  Download,
-  FileClock,
-  Gauge,
-  History,
-  Home,
-  Layers3,
-  Loader2,
-  LockKeyhole,
-  Play,
-  RotateCcw,
-  Search,
-  Settings,
-  ShieldCheck,
-  Sparkles,
-  TerminalSquare,
-  Trash2,
-  Zap,
+  Activity, AlertTriangle, BarChart3, BookOpen, Bot, BrainCircuit,
+  CheckCircle2, ChevronRight, Clock3, Code2, Database, Download,
+  FileClock, Gauge, History, Home, Layers3, Loader2, LockKeyhole,
+  Play, RotateCcw, Search, Settings, ShieldCheck, Sparkles,
+  TerminalSquare, Trash2, Zap,
 } from 'lucide-react';
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
@@ -37,9 +14,7 @@ const MonacoEditor = lazy(() => import('@monaco-editor/react'));
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 const ANALYZE_ENDPOINT = `${API_BASE_URL}/analyze-bug`;
 const defaultLog = 'NullPointerException';
-
-const defaultCode = `String name = null;
-System.out.println(name.length());`;
+const defaultCode = `String name = null;\nSystem.out.println(name.length());`;
 
 const thinkingSteps = [
   'Parsing Error Logs...',
@@ -79,6 +54,11 @@ const securityChecks = [
   'Reports are scoped to the signed-in user.',
 ];
 
+// FIX: safe array helper — prevents crashes when backend returns null/undefined
+function safeArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
 function createFallbackBackendResponse(code, errorLog, language) {
   const isNullPointer = /nullpointer|null pointer|null/i.test(`${errorLog} ${code}`);
   return {
@@ -105,10 +85,7 @@ function createFallbackBackendResponse(code, errorLog, language) {
         'NullPointerException is thrown.',
       ],
       fix: 'Initialize `name` with a real string before calling `.length()`, or add a null check before using the variable.',
-      correctedCode: `String name = "Codex";
-if (name != null) {
-    System.out.println(name.length());
-}`,
+      correctedCode: `String name = "Codex";\nif (name != null) {\n    System.out.println(name.length());\n}`,
       flowchart: ['Create variable', 'Assign null', 'Call method', 'Exception occurs', 'Add null guard', 'Bug fixed'],
       quiz: [
         {
@@ -118,20 +95,25 @@ if (name != null) {
         },
       ],
     },
-    meta: {
-      source: 'frontend-fallback',
-      language,
-    },
+    meta: { source: 'frontend-fallback', language },
   };
 }
 
 function normalizeBackendResponse(payload, request) {
+  // FIX: deep-safe extraction using safeArray to prevent crashes on any page
   const structuredResponse = payload?.structuredResponse || {};
   const parsedError = payload?.parsedError || {};
-  const flashcards = Array.isArray(structuredResponse.flashcards) ? structuredResponse.flashcards : [];
-  const steps = Array.isArray(structuredResponse.steps) ? structuredResponse.steps : [];
-  const flowchart = Array.isArray(structuredResponse.flowchart) ? structuredResponse.flowchart : [];
-  const quiz = Array.isArray(structuredResponse.quiz) ? structuredResponse.quiz : [];
+  const flashcards = safeArray(structuredResponse.flashcards).map((c) => ({
+    question: c?.question || 'No question',
+    answer: c?.answer || 'No answer',
+  }));
+  const steps = safeArray(structuredResponse.steps).map((s) => String(s));
+  const flowchart = safeArray(structuredResponse.flowchart).map((f) => String(f)).filter((f) => f.trim() !== '');
+  const quiz = safeArray(structuredResponse.quiz).map((q) => ({
+    question: q?.question || '',
+    options: safeArray(q?.options).map(String),
+    correctAnswer: q?.correctAnswer || '',
+  }));
   const rootCause = structuredResponse.rootCause || 'No root cause returned by the backend.';
   const title = rootCause.split(/[.!?]/)[0].slice(0, 84) || 'Bug analysis complete';
 
@@ -218,20 +200,25 @@ function App() {
   const [language, setLanguage] = useState('Java');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
-  const [analysis, setAnalysis] = useState(() => normalizeBackendResponse(createFallbackBackendResponse(defaultCode, defaultLog, 'Java'), { code: defaultCode, errorLog: defaultLog, language: 'Java' }));
+  const [analysis, setAnalysis] = useState(() =>
+    normalizeBackendResponse(createFallbackBackendResponse(defaultCode, defaultLog, 'Java'), { code: defaultCode, errorLog: defaultLog, language: 'Java' })
+  );
   const [history, setHistory] = useState(historySeed);
   const [activeFlashcard, setActiveFlashcard] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [toast, setToast] = useState('');
+  // FIX: use ref for toast timer instead of attaching to function object
+  const toastTimer = useRef(null);
   const flow = useMemo(() => makeFlow(analysis), [analysis]);
 
   const showToast = (message) => {
     setToast(message);
-    window.clearTimeout(showToast.timer);
-    showToast.timer = window.setTimeout(() => setToast(''), 2200);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(''), 2200);
   };
 
   const runAnalysis = () => {
+    // FIX: allow either log OR code — only block if both are empty
     if (!log.trim() && !code.trim()) {
       showToast('Add an error log or code before running analysis.');
       return;
@@ -264,8 +251,12 @@ function App() {
               showToast('Backend unavailable. Showing demo-shaped response.');
             }
             setAnalysis(next);
+            // FIX: reset flashcard state when new analysis arrives
+            setActiveFlashcard(0);
+            setFlipped(false);
             setHistory((items) => [
-              { id: Date.now(), title: next.title, time: 'Just now', score: next.confidence, tag: next.language, severity: next.severity },
+              // FIX: use crypto.randomUUID for stable unique IDs
+              { id: crypto.randomUUID(), title: next.title, time: 'Just now', score: next.confidence, tag: next.language, severity: next.severity },
               ...items.slice(0, 6),
             ]);
             setIsAnalyzing(false);
@@ -305,12 +296,9 @@ function App() {
                 {activeView === 'overview' && <OverviewView analysis={analysis} history={history} setActiveView={setActiveView} runAnalysis={runAnalysis} />}
                 {activeView === 'analyze' && (
                   <AnalyzeView
-                    log={log}
-                    setLog={setLog}
-                    code={code}
-                    setCode={setCode}
-                    language={language}
-                    setLanguage={setLanguage}
+                    log={log} setLog={setLog}
+                    code={code} setCode={setCode}
+                    language={language} setLanguage={setLanguage}
                     analysis={analysis}
                     isAnalyzing={isAnalyzing}
                     step={step}
@@ -366,10 +354,11 @@ function Sidebar({ activeView, setActiveView }) {
             key={id}
             aria-label={`Navigate to ${label}`}
             onClick={() => setActiveView(id)}
-            className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm transition ${activeView === id
+            className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm transition ${
+              activeView === id
                 ? 'active-nav border-cyan-400/45 bg-cyan-400/10 text-cyan-100 shadow-lg shadow-cyan-950/20'
                 : 'border-transparent text-slate-400 hover:border-slate-700 hover:bg-slate-900/45 hover:text-slate-100'
-              }`}
+            }`}
           >
             <Icon size={18} />
             <span>{label}</span>
@@ -472,7 +461,8 @@ function AnalyzeView(props) {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 p-4">
           <div>
             <h2 className="text-base font-semibold">Incident Input</h2>
-            <p className="text-sm text-slate-400">Paste the log, add optional code, and run analysis.</p>
+            {/* FIX: updated hint text to reflect either-or input */}
+            <p className="text-sm text-slate-400">Paste an error log, code, or both — then run analysis.</p>
           </div>
           <div className="flex gap-2">
             <button onClick={props.onClear} className="glow-hover inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300">
@@ -489,7 +479,7 @@ function AnalyzeView(props) {
           <div className="grid gap-3">
             <label className="grid gap-1 text-sm text-slate-300">
               Language
-              <select value={props.language} onChange={(event) => props.setLanguage(event.target.value)} className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400">
+              <select value={props.language} onChange={(e) => props.setLanguage(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400">
                 <option value="Java">Java</option>
                 <option value="JavaScript">JavaScript</option>
                 <option value="TypeScript">TypeScript</option>
@@ -499,20 +489,26 @@ function AnalyzeView(props) {
             </label>
           </div>
           <label className="grid gap-2 text-sm font-medium text-slate-200">
-            Error Log
-            <textarea value={props.log} onChange={(event) => props.setLog(event.target.value)} placeholder="Paste stack trace or runtime error here..." className="h-44 resize-none rounded-lg border border-slate-700 bg-slate-950/70 p-3 font-mono text-sm leading-6 text-slate-100 outline-none focus:border-cyan-400" />
+            Error Log <span className="font-normal text-slate-400">(optional if code provided)</span>
+            <textarea value={props.log} onChange={(e) => props.setLog(e.target.value)} placeholder="Paste stack trace or runtime error here..." className="h-44 resize-none rounded-lg border border-slate-700 bg-slate-950/70 p-3 font-mono text-sm leading-6 text-slate-100 outline-none focus:border-cyan-400" />
           </label>
-          <div className="overflow-hidden rounded-lg border border-slate-700 bg-[#0f172a]">
-            <Suspense fallback={<div className="shimmer h-[360px] p-4 text-sm text-slate-400">Loading code editor...</div>}>
-              <MonacoEditor
-                height="360px"
-                language={props.language.toLowerCase() === 'c++' ? 'cpp' : props.language.toLowerCase()}
-                theme="vs-dark"
-                value={props.code}
-                onChange={(value) => props.setCode(value || '')}
-                options={{ minimap: { enabled: false }, fontSize: 13, wordWrap: 'on', padding: { top: 14 }, scrollBeyondLastLine: false }}
-              />
-            </Suspense>
+          <div>
+            <div className="mb-2 text-sm font-medium text-slate-200">
+              Code <span className="font-normal text-slate-400">(optional if error log provided)</span>
+            </div>
+            <div className="overflow-hidden rounded-lg border border-slate-700 bg-[#0f172a]">
+              <Suspense fallback={<div className="shimmer h-[360px] p-4 text-sm text-slate-400">Loading code editor...</div>}>
+                <MonacoEditor
+                  height="360px"
+                  language={props.language.toLowerCase() === 'c++' ? 'cpp' : props.language.toLowerCase()}
+                  theme="vs-dark"
+                  value={props.code}
+                  // FIX: use ?? instead of || so an intentionally empty string is preserved
+                  onChange={(value) => props.setCode(value ?? '')}
+                  options={{ minimap: { enabled: false }, fontSize: 13, wordWrap: 'on', padding: { top: 14 }, scrollBeyondLastLine: false }}
+                />
+              </Suspense>
+            </div>
           </div>
         </div>
       </section>
@@ -526,6 +522,8 @@ function AnalyzeView(props) {
 
 function WorkflowView({ analysis, flow, isAnalyzing }) {
   const { steps, correctedCode } = analysis.structuredResponse;
+  // FIX: guard against empty steps array to avoid blank page
+  const safeSteps = steps.length > 0 ? steps : ['No steps available — run an analysis first.'];
   return (
     <div className="grid gap-5">
       <FlowPanel flow={flow} isAnalyzing={isAnalyzing} />
@@ -534,7 +532,11 @@ function WorkflowView({ analysis, flow, isAnalyzing }) {
         <section className="panel rounded-lg p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold"><RotateCcw size={16} /> Bug Story Timeline</div>
           <ol className="grid gap-3 text-sm text-slate-300">
-            {steps.map((item) => <li key={item} className="card flex gap-2 p-3"><ChevronRight className="mt-0.5 shrink-0 text-cyan-300" size={15} />{item}</li>)}
+            {safeSteps.map((item, i) => (
+              <li key={i} className="card flex gap-2 p-3">
+                <ChevronRight className="mt-0.5 shrink-0 text-cyan-300" size={15} />{item}
+              </li>
+            ))}
           </ol>
         </section>
       </div>
@@ -545,7 +547,11 @@ function WorkflowView({ analysis, flow, isAnalyzing }) {
 
 function LearnView({ analysis, activeFlashcard, setActiveFlashcard, flipped, setFlipped }) {
   const { flashcards, quiz } = analysis.structuredResponse;
-  const currentCard = flashcards[activeFlashcard] || { question: 'No flashcard available', answer: 'Run an analysis to generate learning cards.' };
+  // FIX: guard against empty flashcards array
+  const safeFlashcards = flashcards.length > 0 ? flashcards : [{ question: 'No flashcard available', answer: 'Run an analysis to generate learning cards.' }];
+  const safeQuiz = quiz.length > 0 ? quiz : [];
+  const currentCard = safeFlashcards[Math.min(activeFlashcard, safeFlashcards.length - 1)];
+
   return (
     <div className="grid grid-cols-[1fr_0.85fr] gap-5 max-[980px]:grid-cols-1">
       <section className="panel rounded-lg p-5">
@@ -554,9 +560,9 @@ function LearnView({ analysis, activeFlashcard, setActiveFlashcard, flipped, set
             <h2 className="text-lg font-semibold">Flashcard Insight</h2>
             <p className="text-sm text-slate-400">Flip the card to reinforce debugging concepts.</p>
           </div>
-          <button onClick={() => setFlipped((value) => !value)} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-cyan-400 hover:text-cyan-200">Flip</button>
+          <button onClick={() => setFlipped((v) => !v)} className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-cyan-400 hover:text-cyan-200">Flip</button>
         </div>
-        <button onClick={() => setFlipped((value) => !value)} className="relative h-64 w-full text-left [perspective:1000px]">
+        <button onClick={() => setFlipped((v) => !v)} className="relative h-64 w-full text-left [perspective:1000px]">
           <motion.div animate={{ rotateY: flipped ? 180 : 0 }} transition={{ duration: 0.45 }} className="relative h-full w-full [transform-style:preserve-3d]">
             <div className="card absolute inset-0 grid content-center p-6 [backface-visibility:hidden]">
               <div className="text-xs uppercase text-cyan-300">Question</div>
@@ -569,27 +575,37 @@ function LearnView({ analysis, activeFlashcard, setActiveFlashcard, flipped, set
           </motion.div>
         </button>
         <div className="mt-4 flex gap-2">
-          {flashcards.map((card, index) => (
-            <button key={card.question} onClick={() => { setActiveFlashcard(index); setFlipped(false); }} className={`h-2 flex-1 rounded-full ${activeFlashcard === index ? 'bg-cyan-300' : 'bg-slate-700'}`} title={`Card ${index + 1}`} />
+          {safeFlashcards.map((card, index) => (
+            <button
+              key={index}
+              // FIX: reset flip state when switching cards
+              onClick={() => { setActiveFlashcard(index); setFlipped(false); }}
+              className={`h-2 flex-1 rounded-full ${activeFlashcard === index ? 'bg-cyan-300' : 'bg-slate-700'}`}
+              title={`Card ${index + 1}`}
+            />
           ))}
         </div>
       </section>
       <section className="panel rounded-lg p-5">
         <h2 className="mb-3 text-lg font-semibold">Quiz</h2>
-        <div className="grid gap-4">
-          {quiz.map((item) => (
-            <div key={item.question} className="card p-4">
-              <p className="font-medium">{item.question}</p>
-              <div className="mt-3 grid gap-2">
-                {item.options.map((option) => (
-                  <div key={option} className={`rounded-lg border px-3 py-2 text-sm ${option === item.correctAnswer ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-100' : 'border-slate-700 bg-slate-950/30 text-slate-300'}`}>
-                    {option}
-                  </div>
-                ))}
+        {safeQuiz.length === 0 ? (
+          <EmptyState title="No quiz available" body="Run an analysis to generate quiz questions." />
+        ) : (
+          <div className="grid gap-4">
+            {safeQuiz.map((item, i) => (
+              <div key={i} className="card p-4">
+                <p className="font-medium">{item.question}</p>
+                <div className="mt-3 grid gap-2">
+                  {item.options.map((option) => (
+                    <div key={option} className={`rounded-lg border px-3 py-2 text-sm ${option === item.correctAnswer ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-100' : 'border-slate-700 bg-slate-950/30 text-slate-300'}`}>
+                      {option}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
@@ -597,7 +613,10 @@ function LearnView({ analysis, activeFlashcard, setActiveFlashcard, flipped, set
 
 function HistoryView({ history, setHistory, setActiveView }) {
   const [query, setQuery] = useState('');
-  const filtered = history.filter((item) => item.title.toLowerCase().includes(query.toLowerCase()) || item.tag.toLowerCase().includes(query.toLowerCase()));
+  const filtered = history.filter((item) =>
+    item.title.toLowerCase().includes(query.toLowerCase()) ||
+    item.tag.toLowerCase().includes(query.toLowerCase())
+  );
   return (
     <section className="panel rounded-lg">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 p-4">
@@ -607,7 +626,7 @@ function HistoryView({ history, setHistory, setActiveView }) {
         </div>
         <label className="flex min-w-[260px] items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-300">
           <Search size={16} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search history..." className="w-full bg-transparent outline-none" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search history..." className="w-full bg-transparent outline-none" />
         </label>
       </div>
       <div className="grid gap-3 p-4">
@@ -695,7 +714,7 @@ function SettingsView({ showToast }) {
       <div className="mt-5 grid max-w-2xl gap-5">
         <label className="grid gap-2 text-sm text-slate-300">
           AI Model
-          <select value={model} onChange={(event) => setModel(event.target.value)} className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400">
+          <select value={model} onChange={(e) => setModel(e.target.value)} className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400">
             <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
             <option value="gemini-flash">Gemini Flash</option>
             <option value="mock-demo">Mock Demo Engine</option>
@@ -706,7 +725,7 @@ function SettingsView({ showToast }) {
             <span className="block font-medium text-slate-100">Streaming AI status</span>
             <span className="text-slate-400">Show parsing and root-cause steps during analysis.</span>
           </span>
-          <input type="checkbox" checked={streaming} onChange={(event) => setStreaming(event.target.checked)} className="size-5 accent-cyan-400" />
+          <input type="checkbox" checked={streaming} onChange={(e) => setStreaming(e.target.checked)} className="size-5 accent-cyan-400" />
         </label>
         <button onClick={() => showToast(`Settings saved for ${model}.`)} className="primary-action w-fit rounded-lg px-4 py-2 text-sm font-semibold text-white">Save Settings</button>
       </div>
@@ -821,7 +840,6 @@ function CodeBlock({ title, code }) {
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
   };
-
   return (
     <section className="panel overflow-hidden rounded-lg">
       <div className="flex items-center justify-between border-b border-slate-700/60 p-4">
