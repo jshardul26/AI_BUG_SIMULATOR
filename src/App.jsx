@@ -26,7 +26,7 @@ const thinkingSteps = [
 ];
 
 const navItems = [
-  { id: 'overview', label: 'Overview', icon: Home },
+  { id: 'overview', label: 'Landing Page', icon: Home },
   { id: 'analyze', label: 'Analyze', icon: TerminalSquare },
   { id: 'workflow', label: 'Workflow', icon: Layers3 },
   { id: 'learn', label: 'Learn', icon: BookOpen },
