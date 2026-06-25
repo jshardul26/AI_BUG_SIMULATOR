@@ -232,12 +232,8 @@ function App() {
   };
 
   const runAnalysis = () => {
-    if (!log.trim()) {
-      showToast('Add an error log before running analysis.');
-      return;
-    }
-    if (!code.trim()) {
-      showToast('Add code before running analysis.');
+    if (!log.trim() && !code.trim()) {
+      showToast('Add an error log or code before running analysis.');
       return;
     }
     if (!language.trim()) {
@@ -370,11 +366,10 @@ function Sidebar({ activeView, setActiveView }) {
             key={id}
             aria-label={`Navigate to ${label}`}
             onClick={() => setActiveView(id)}
-            className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm transition ${
-              activeView === id
+            className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm transition ${activeView === id
                 ? 'active-nav border-cyan-400/45 bg-cyan-400/10 text-cyan-100 shadow-lg shadow-cyan-950/20'
                 : 'border-transparent text-slate-400 hover:border-slate-700 hover:bg-slate-900/45 hover:text-slate-100'
-            }`}
+              }`}
           >
             <Icon size={18} />
             <span>{label}</span>
