@@ -136,10 +136,11 @@ Explain:
 Rules:
 
 - Use simple English
-- Generate 8-10 detailed sentences
+- Generate 5-6 detailed sentences
 - Avoid unnecessary technical jargon
 - Include a real-world analogy
 - End with one practical lesson the learner should remember
+- Evrything should be crisp and should not be heavy or boring to read
 
 --------------------------------------------------
 2. FLASHCARDS
