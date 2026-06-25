@@ -1,3 +1,4 @@
+import LandingView from './LandingView';
 import { Suspense, lazy, useMemo, useRef, useState } from 'react';
 import ReactFlow, { Background, Controls, MarkerType } from 'reactflow';
 import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
@@ -293,7 +294,7 @@ function App() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.28 }}
               >
-                {activeView === 'overview' && <OverviewView analysis={analysis} history={history} setActiveView={setActiveView} runAnalysis={runAnalysis} />}
+                {activeView === 'overview' && <LandingView setActiveView={setActiveView} />}
                 {activeView === 'analyze' && (
                   <AnalyzeView
                     log={log} setLog={setLog}
