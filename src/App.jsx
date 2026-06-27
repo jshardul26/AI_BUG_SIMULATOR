@@ -280,49 +280,48 @@ function App() {
       <motion.div className="scroll-grid" style={{ y: gridY }} />
       <motion.div className="scroll-aurora" style={{ y: auroraY }} />
       <motion.div className="scroll-ribbon" style={{ y: ribbonY }} />
-      <div className="workspace grid min-h-screen grid-cols-[252px_1fr] text-slate-100 max-[980px]:grid-cols-1">
-        <Sidebar activeView={activeView} setActiveView={setActiveView} />
+      <div className={`workspace grid min-h-screen text-slate-100 ${activeView === 'overview' ? 'grid-cols-1' : 'grid-cols-[252px_1fr] max-[980px]:grid-cols-1'}`}>
+        {activeView !== 'overview' && <Sidebar activeView={activeView} setActiveView={setActiveView} />}
         <section className="min-w-0">
-          <Topbar activeView={activeView} isAnalyzing={isAnalyzing} />
-          <div className="px-5 py-5 max-[640px]:px-3">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeView}
-                className="view-stack"
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.28 }}
-              >
-                {activeView === 'overview' && <LandingView setActiveView={setActiveView} />}
-                {activeView === 'analyze' && (
-                  <AnalyzeView
-                    log={log} setLog={setLog}
-                    code={code} setCode={setCode}
-                    language={language} setLanguage={setLanguage}
-                    analysis={analysis}
-                    isAnalyzing={isAnalyzing}
-                    step={step}
-                    onAnalyze={runAnalysis}
-                    onClear={clearInputs}
-                  />
-                )}
-                {activeView === 'workflow' && <WorkflowView analysis={analysis} flow={flow} isAnalyzing={isAnalyzing} />}
-                {activeView === 'learn' && (
-                  <LearnView
-                    analysis={analysis}
-                    activeFlashcard={activeFlashcard}
-                    setActiveFlashcard={setActiveFlashcard}
-                    flipped={flipped}
-                    setFlipped={setFlipped}
-                  />
-                )}
-                {activeView === 'history' && <HistoryView history={history} setHistory={setHistory} setActiveView={setActiveView} />}
-                {activeView === 'reports' && <ReportsView showToast={showToast} />}
-                {activeView === 'security' && <SecurityView />}
-                {activeView === 'settings' && <SettingsView showToast={showToast} />}
-              </motion.div>
-            </AnimatePresence>
+          {activeView !== 'overview' && <Topbar activeView={activeView} isAnalyzing={isAnalyzing} />}
+          <div className={activeView === 'overview' ? '' : 'px-5 py-5 max-[640px]:px-3'}>  <AnimatePresence mode="wait">
+            <motion.div
+              key={activeView}
+              className="view-stack"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.28 }}
+            >
+              {activeView === 'overview' && <LandingView setActiveView={setActiveView} />}
+              {activeView === 'analyze' && (
+                <AnalyzeView
+                  log={log} setLog={setLog}
+                  code={code} setCode={setCode}
+                  language={language} setLanguage={setLanguage}
+                  analysis={analysis}
+                  isAnalyzing={isAnalyzing}
+                  step={step}
+                  onAnalyze={runAnalysis}
+                  onClear={clearInputs}
+                />
+              )}
+              {activeView === 'workflow' && <WorkflowView analysis={analysis} flow={flow} isAnalyzing={isAnalyzing} />}
+              {activeView === 'learn' && (
+                <LearnView
+                  analysis={analysis}
+                  activeFlashcard={activeFlashcard}
+                  setActiveFlashcard={setActiveFlashcard}
+                  flipped={flipped}
+                  setFlipped={setFlipped}
+                />
+              )}
+              {activeView === 'history' && <HistoryView history={history} setHistory={setHistory} setActiveView={setActiveView} />}
+              {activeView === 'reports' && <ReportsView showToast={showToast} />}
+              {activeView === 'security' && <SecurityView />}
+              {activeView === 'settings' && <SettingsView showToast={showToast} />}
+            </motion.div>
+          </AnimatePresence>
           </div>
         </section>
       </div>
@@ -355,11 +354,10 @@ function Sidebar({ activeView, setActiveView }) {
             key={id}
             aria-label={`Navigate to ${label}`}
             onClick={() => setActiveView(id)}
-            className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm transition ${
-              activeView === id
+            className={`flex items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm transition ${activeView === id
                 ? 'active-nav border-cyan-400/45 bg-cyan-400/10 text-cyan-100 shadow-lg shadow-cyan-950/20'
                 : 'border-transparent text-slate-400 hover:border-slate-700 hover:bg-slate-900/45 hover:text-slate-100'
-            }`}
+              }`}
           >
             <Icon size={18} />
             <span>{label}</span>

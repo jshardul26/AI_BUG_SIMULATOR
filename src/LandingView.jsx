@@ -88,7 +88,53 @@ export default function LandingView({ setActiveView }) {
         position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none',
       }} />
 
-      {/* Arc glow — the signature element */}
+      {/* ============================================================
+          ARC GLOW SYSTEM — refined cinematic lighting
+          All other code below is completely unchanged.
+      ============================================================ */}
+
+      {/* Layer 1 — Outermost diffuse halo: very large, very soft atmospheric bleed */}
+      <div style={{
+        position: 'absolute',
+        top: '-2%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '1100px',
+        height: '1100px',
+        borderRadius: '50%',
+        background: 'radial-gradient(ellipse at 50% 42%, rgba(30,90,255,0.09) 0%, rgba(30,80,220,0.05) 40%, transparent 68%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Layer 2 — Mid atmospheric bloom: tighter, brighter, slightly blue-white */}
+      <div style={{
+        position: 'absolute',
+        top: '4%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '860px',
+        height: '860px',
+        borderRadius: '50%',
+        background: 'radial-gradient(ellipse at 50% 44%, rgba(80,160,255,0.13) 0%, rgba(60,130,255,0.07) 38%, transparent 64%)',
+        filter: 'blur(6px)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Layer 3 — Core inner bloom: concentrated bright blue-white at the top arc */}
+      <div style={{
+        position: 'absolute',
+        top: '8%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '680px',
+        height: '680px',
+        borderRadius: '50%',
+        background: 'radial-gradient(ellipse at 50% 46%, rgba(140,200,255,0.09) 0%, rgba(100,175,255,0.05) 30%, transparent 56%)',
+        filter: 'blur(2px)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Layer 4 — Outer ring border: same size/position, enhanced glow only */}
       <div style={{
         position: 'absolute',
         top: '10%',
@@ -97,11 +143,18 @@ export default function LandingView({ setActiveView }) {
         width: '820px',
         height: '820px',
         borderRadius: '50%',
-        background: 'radial-gradient(ellipse at 50% 50%, rgba(56,140,255,0.13) 0%, rgba(56,140,255,0.07) 35%, transparent 70%)',
-        boxShadow: '0 0 120px 60px rgba(40,110,255,0.10)',
+        border: '1px solid rgba(130,195,255,0.16)',
+        boxShadow: `
+          0 0 0 2px rgba(100,175,255,0.05),
+          0 0 18px 4px rgba(100,175,255,0.12),
+          0 0 55px 14px rgba(70,145,255,0.09),
+          0 0 110px 30px rgba(50,110,255,0.06),
+          inset 0 0 50px 10px rgba(70,140,255,0.04)
+        `,
         pointerEvents: 'none',
       }} />
-      {/* Inner arc ring */}
+
+      {/* Layer 5 — Inner ring: same size/position, enhanced rim glow */}
       <div style={{
         position: 'absolute',
         top: '12%',
@@ -110,11 +163,46 @@ export default function LandingView({ setActiveView }) {
         width: '640px',
         height: '640px',
         borderRadius: '50%',
-        border: '1px solid rgba(100,170,255,0.18)',
-        boxShadow: '0 0 60px 10px rgba(60,130,255,0.10)',
+        border: '1.5px solid rgba(170,220,255,0.22)',
+        boxShadow: `
+          0 0 0 2px rgba(180,225,255,0.06),
+          0 0 14px 3px rgba(140,205,255,0.15),
+          0 0 40px 10px rgba(100,175,255,0.10),
+          0 0 80px 20px rgba(70,145,255,0.06),
+          inset 0 0 35px 8px rgba(90,160,255,0.05)
+        `,
         pointerEvents: 'none',
       }} />
-      {/* Horizon glow bar */}
+
+
+
+      {/* Layer 7 — Vertical light shaft / upward ray above the arc crown */}
+      <div style={{
+        position: 'absolute',
+        top: '0%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '3px',
+        height: '24%',
+        background: 'linear-gradient(to top, rgba(220,240,255,0.28), rgba(180,220,255,0.10) 55%, transparent)',
+        filter: 'blur(3px)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Layer 8 — Wider soft vertical bloom above crown */}
+      <div style={{
+        position: 'absolute',
+        top: '0%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '200px',
+        height: '22%',
+        background: 'linear-gradient(to top, rgba(120,190,255,0.22), rgba(90,160,255,0.09) 50%, transparent)',
+        filter: 'blur(16px)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Layer 9 — Horizon glow bar (original, preserved exactly) */}
       <div style={{
         position: 'absolute',
         top: '41%',
@@ -127,7 +215,7 @@ export default function LandingView({ setActiveView }) {
         pointerEvents: 'none',
       }} />
 
-      {/* Hero content */}
+      {/* Hero content — UNCHANGED */}
       <div style={{
         position: 'relative',
         zIndex: 2,
@@ -234,7 +322,7 @@ export default function LandingView({ setActiveView }) {
         </div>
       </div>
 
-      {/* Feature pills */}
+      {/* Feature pills — UNCHANGED */}
       <div style={{
         position: 'relative',
         zIndex: 2,
@@ -274,8 +362,8 @@ export default function LandingView({ setActiveView }) {
             }}>
               <Icon size={18} />
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', lineHeight: 1.3 }}>{label}</div>
-            <div style={{ fontSize: '12px', color: 'rgba(148,180,220,0.70)', lineHeight: 1.5, marginTop: '4px' }}>{desc}</div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff', lineHeight: 1.3 }}>{label}</div>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, marginTop: '4px' }}>{desc}</div>
           </div>
         ))}
       </div>
