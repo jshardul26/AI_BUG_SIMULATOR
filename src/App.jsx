@@ -12,7 +12,7 @@ import {
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'));
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const ANALYZE_ENDPOINT = `${API_BASE_URL}/analyze-bug`;
 const defaultLog = 'NullPointerException';
 const defaultCode = `String name = null;\nSystem.out.println(name.length());`;
@@ -55,7 +55,7 @@ function normaliseFlowchartNode(node) {
 }
 
 // ─── FALLBACK RESPONSE ────────────────────────────────────────────────────────
-function createFallbackBackendResponse(code, errorLog, language) {
+function createFallbackBackendResponse(code, errorLog) {
   const isNullPointer = /nullpointer|null pointer|null/i.test(`${errorLog} ${code}`);
   return {
     success: true,
@@ -104,10 +104,9 @@ function createFallbackBackendResponse(code, errorLog, language) {
       ],
       learningOutcome: 'You can now identify NullPointerException causes and apply null-guard patterns.',
     },
-    meta: { source: 'frontend-fallback', language },
+    meta: { source: 'frontend-fallback' },
   };
 }
-
 // ─── NORMALISE RESPONSE ───────────────────────────────────────────────────────
 // Maps the raw backend payload (or fallback) into the uniform shape the UI needs.
 function normalizeBackendResponse(payload, request) {
@@ -158,6 +157,7 @@ function normalizeBackendResponse(payload, request) {
   // Derive a short display title from rootCause
   const firstSentence = rootCause.match(/[^.!?]+[.!?]/)?.[0]?.trim() || rootCause;
   const title = firstSentence.length > 90 ? firstSentence.slice(0, 87) + '...' : firstSentence;
+
   // Map bugPattern to a simple High / Medium severity for UI badges
   const highSeverityPatterns = ['Null Reference Error', 'Recursion Error', 'Memory Issue', 'Boundary Error'];
   const severity = highSeverityPatterns.includes(bugPattern) ? 'High' : 'Medium';
@@ -169,7 +169,6 @@ function normalizeBackendResponse(payload, request) {
     bugPattern,
     // Backend doesn't return a confidence score — default to a reasonable constant
     confidence: payload?.meta?.confidence || 91,
-    language: request.language,
     parsedError,
     structuredResponse: {
       rootCause,
@@ -201,6 +200,7 @@ async function analyzeBugWithBackend(request) {
     const errors = Array.isArray(payload.errors)
       ? payload.errors
       : [payload.message || 'Bug analysis failed.'];
+
     const error = new Error(errors.join(', '));
     error.validationErrors = errors;
     throw error;
@@ -262,13 +262,12 @@ function App() {
   const [activeView, setActiveView] = useState('overview');
   const [log, setLog] = useState(defaultLog);
   const [code, setCode] = useState(defaultCode);
-  const [language, setLanguage] = useState('Java');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
   const [analysis, setAnalysis] = useState(() =>
     normalizeBackendResponse(
-      createFallbackBackendResponse(defaultCode, defaultLog, 'Java'),
-      { code: defaultCode, errorLog: defaultLog, language: 'Java' }
+      createFallbackBackendResponse(defaultCode, defaultLog),
+      { code: defaultCode, errorLog: defaultLog }
     )
   );
   const [history, setHistory] = useState(historySeed);
@@ -289,10 +288,6 @@ function App() {
       showToast('Add an error log or code before running analysis.');
       return;
     }
-    if (!language.trim()) {
-      showToast('Select a language before running analysis.');
-      return;
-    }
 
     setIsAnalyzing(true);
     setStep(0);
@@ -303,8 +298,9 @@ function App() {
         if (current >= thinkingSteps.length - 1) {
           window.clearInterval(interval);
           window.setTimeout(async () => {
-            const request = { code, errorLog: log, language };
+            const request = { code, errorLog: log };
             let next;
+
             try {
               next = await analyzeBugWithBackend(request);
               showToast('Backend analysis complete.');
@@ -314,30 +310,37 @@ function App() {
                 setIsAnalyzing(false);
                 return;
               }
+
               next = normalizeBackendResponse(
-                createFallbackBackendResponse(code, log, language),
+                createFallbackBackendResponse(code, log),
                 request
               );
+
               showToast('Backend unavailable — showing demo response.');
             }
+
             setAnalysis(next);
             setActiveFlashcard(0);
             setFlipped(false);
+
             setHistory((items) => [
               {
                 id: crypto.randomUUID(),
                 title: next.title,
                 time: 'Just now',
                 score: next.confidence,
-                tag: next.language,
+                tag: next.bugPattern,
                 severity: next.severity,
               },
               ...items.slice(0, 6),
             ]);
+
             setIsAnalyzing(false);
           }, 420);
+
           return current;
         }
+
         return current + 1;
       });
     }, 560);
@@ -354,6 +357,7 @@ function App() {
       <motion.div className="scroll-grid" style={{ y: gridY }} />
       <motion.div className="scroll-aurora" style={{ y: auroraY }} />
       <motion.div className="scroll-ribbon" style={{ y: ribbonY }} />
+
       <div
         className={`workspace grid min-h-screen text-slate-100 ${activeView === 'overview'
             ? 'grid-cols-1'
@@ -361,8 +365,10 @@ function App() {
           }`}
       >
         {activeView !== 'overview' && <Sidebar activeView={activeView} setActiveView={setActiveView} />}
+
         <section className="min-w-0">
           {activeView !== 'overview' && <Topbar activeView={activeView} isAnalyzing={isAnalyzing} />}
+
           <div className={activeView === 'overview' ? '' : 'px-5 py-5 max-[640px]:px-3'}>
             <AnimatePresence mode="wait">
               <motion.div
@@ -376,14 +382,13 @@ function App() {
                 {activeView === 'overview' && (
                   <LandingView setActiveView={setActiveView} />
                 )}
+
                 {activeView === 'analyze' && (
                   <AnalyzeView
                     log={log}
                     setLog={setLog}
                     code={code}
                     setCode={setCode}
-                    language={language}
-                    setLanguage={setLanguage}
                     analysis={analysis}
                     isAnalyzing={isAnalyzing}
                     step={step}
@@ -391,9 +396,11 @@ function App() {
                     onClear={clearInputs}
                   />
                 )}
+
                 {activeView === 'workflow' && (
                   <WorkflowView analysis={analysis} flow={flow} isAnalyzing={isAnalyzing} />
                 )}
+
                 {activeView === 'learn' && (
                   <LearnView
                     analysis={analysis}
@@ -434,9 +441,9 @@ function Sidebar({ activeView, setActiveView }) {
           <Bot size={22} />
         </div>
         <div>
-          <div className="text-sm font-semibold">AI Bug Simulator</div>
+          <div className="text-sm font-semibold">DebugGenie</div>
           <div className="text-xs text-slate-400">Mission Control</div>
-        </div>
+        </div> 
       </div>
       <nav className="grid gap-2 max-[980px]:grid-cols-4 max-[640px]:grid-cols-2">
         {navItems.map(({ id, icon: Icon, label }) => (
@@ -520,21 +527,8 @@ function AnalyzeView(props) {
             </button>
           </div>
         </div>
+
         <div className="grid gap-4 p-4">
-          <label className="grid gap-1 text-sm text-slate-300">
-            Language
-            <select
-              value={props.language}
-              onChange={(e) => props.setLanguage(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-slate-100 outline-none focus:border-cyan-400"
-            >
-              <option value="Java">Java</option>
-              <option value="JavaScript">JavaScript</option>
-              <option value="TypeScript">TypeScript</option>
-              <option value="Python">Python</option>
-              <option value="C++">C++</option>
-            </select>
-          </label>
 
           <label className="grid gap-2 text-sm font-medium text-slate-200">
             Error Log{' '}
@@ -562,11 +556,7 @@ function AnalyzeView(props) {
               >
                 <MonacoEditor
                   height="360px"
-                  language={
-                    props.language.toLowerCase() === 'c++'
-                      ? 'cpp'
-                      : props.language.toLowerCase()
-                  }
+                  language="plaintext"
                   theme="vs-dark"
                   value={props.code}
                   onChange={(value) => props.setCode(value ?? '')}
@@ -590,82 +580,109 @@ function AnalyzeView(props) {
     </div>
   );
 }
-
 // ─── WORKFLOW VIEW ────────────────────────────────────────────────────────────
 function WorkflowView({ analysis, flow, isAnalyzing }) {
-  const { steps, correctedCode, learningOutcome } = analysis.structuredResponse;
-  const safeSteps = steps.length > 0 ? steps : ['No steps available — run an analysis first.'];
+  const structuredResponse = analysis?.structuredResponse || {};
+
+  const correctedCode = structuredResponse.correctedCode || "";
+  const learningOutcome = structuredResponse.learningOutcome || "";
+
 
   return (
     <div className="grid gap-5">
-      <FlowPanel flow={flow} isAnalyzing={isAnalyzing} />
+
+      <FlowPanel
+        flow={flow}
+        isAnalyzing={isAnalyzing}
+      />
+
 
       <div className="grid grid-cols-[1fr_0.9fr] gap-5 max-[980px]:grid-cols-1">
+
         <Insights analysis={analysis} />
-        <section className="panel rounded-lg p-4">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <RotateCcw size={16} /> Bug Story Timeline
-          </div>
-          <ol className="grid gap-3 text-sm text-slate-300">
-            {safeSteps.map((item, i) => (
-              <li key={i} className="card flex gap-2 p-3">
-                <ChevronRight className="mt-0.5 shrink-0 text-cyan-300" size={15} />
-                {item}
-              </li>
-            ))}
-          </ol>
-        </section>
+
       </div>
 
-      {/* Bug Pattern badge — surfaced from new backend field */}
-      {analysis.bugPattern && analysis.bugPattern !== 'Unknown' && (
-        <div className="panel rounded-lg p-4">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-200">
-            <AlertTriangle size={16} className="text-amber-300" /> Bug Pattern Classification
-          </div>
-          <span className="rounded-full border border-amber-400/35 bg-amber-400/10 px-3 py-1 text-sm text-amber-200">
-            {analysis.bugPattern}
-          </span>
-        </div>
+
+      {correctedCode.trim() !== "" && (
+        <CodeBlock
+          title="Corrected Code"
+          code={correctedCode}
+        />
       )}
 
-      <CodeBlock title="Corrected Code" code={correctedCode} />
 
-      {/* Learning Outcome — new backend field */}
       {learningOutcome && (
         <section className="panel rounded-lg p-4">
+
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
             <BookOpen size={16} /> Learning Outcome
           </div>
-          <p className="text-sm leading-6 text-slate-300">{learningOutcome}</p>
+
+
+          <p className="text-sm leading-6 text-slate-300">
+            {learningOutcome}
+          </p>
+
         </section>
       )}
+
     </div>
   );
 }
-
 // ─── LEARN VIEW ───────────────────────────────────────────────────────────────
-function LearnView({ analysis, activeFlashcard, setActiveFlashcard, flipped, setFlipped }) {
-  const { flashcards, quiz, learningOutcome } = analysis.structuredResponse;
+function LearnView({
+  analysis,
+  activeFlashcard,
+  setActiveFlashcard,
+  flipped,
+  setFlipped,
+}) {
+  const structuredResponse = analysis?.structuredResponse || {};
+
+  const flashcards = Array.isArray(structuredResponse.flashcards)
+    ? structuredResponse.flashcards
+    : [];
+
+  const quiz = Array.isArray(structuredResponse.quiz)
+    ? structuredResponse.quiz
+    : [];
+
+  const learningOutcome = structuredResponse.learningOutcome || '';
 
   const safeFlashcards =
     flashcards.length > 0
       ? flashcards
-      : [{ question: 'No flashcard available', answer: 'Run an analysis to generate learning cards.' }];
+      : [
+          {
+            question: 'No flashcard available',
+            answer: 'Run an analysis to generate learning cards.',
+          },
+        ];
 
-  const safeQuiz = quiz.length > 0 ? quiz : [];
-  const currentCard = safeFlashcards[Math.min(activeFlashcard, safeFlashcards.length - 1)];
+  const currentIndex = Math.min(
+    activeFlashcard,
+    safeFlashcards.length - 1
+  );
+
+  const currentCard = safeFlashcards[currentIndex];
 
   return (
     <div className="grid gap-5">
       <div className="grid grid-cols-[1fr_0.85fr] gap-5 max-[980px]:grid-cols-1">
-        {/* Flashcard panel */}
+
         <section className="panel rounded-lg p-5">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold">Flashcard Insight</h2>
-              <p className="text-sm text-slate-400">Flip the card to reinforce debugging concepts.</p>
+              <h2 className="text-lg font-semibold">
+                Flashcard Insight
+              </h2>
+
+              <p className="text-sm text-slate-400">
+                Flip the card to reinforce debugging concepts.
+              </p>
             </div>
+
             <button
               onClick={() => setFlipped((v) => !v)}
               className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-cyan-400 hover:text-cyan-200"
@@ -673,6 +690,7 @@ function LearnView({ analysis, activeFlashcard, setActiveFlashcard, flipped, set
               Flip
             </button>
           </div>
+
 
           <button
             onClick={() => setFlipped((v) => !v)}
@@ -683,75 +701,119 @@ function LearnView({ analysis, activeFlashcard, setActiveFlashcard, flipped, set
               transition={{ duration: 0.45 }}
               className="relative h-full w-full [transform-style:preserve-3d]"
             >
+
               <div className="card absolute inset-0 grid content-center p-6 [backface-visibility:hidden]">
-                <div className="text-xs uppercase text-cyan-300">Question</div>
-                <p className="mt-3 text-xl font-semibold leading-8">{currentCard.question}</p>
+                <div className="text-xs uppercase text-cyan-300">
+                  Question
+                </div>
+
+                <p className="mt-3 text-xl font-semibold leading-8">
+                  {currentCard.question}
+                </p>
               </div>
+
+
               <div className="card absolute inset-0 grid content-center p-6 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                <div className="text-xs uppercase text-emerald-300">Answer</div>
-                <p className="mt-3 text-lg leading-8 text-slate-300">{currentCard.answer}</p>
+                <div className="text-xs uppercase text-emerald-300">
+                  Answer
+                </div>
+
+                <p className="mt-3 text-lg leading-8 text-slate-300">
+                  {currentCard.answer}
+                </p>
               </div>
+
             </motion.div>
           </button>
+
 
           <div className="mt-4 flex gap-2">
             {safeFlashcards.map((_, index) => (
               <button
                 key={index}
-                onClick={() => { setActiveFlashcard(index); setFlipped(false); }}
-                className={`h-2 flex-1 rounded-full ${activeFlashcard === index ? 'bg-cyan-300' : 'bg-slate-700'}`}
+                onClick={() => {
+                  setActiveFlashcard(index);
+                  setFlipped(false);
+                }}
+                className={`h-2 flex-1 rounded-full ${
+                  activeFlashcard === index
+                    ? 'bg-cyan-300'
+                    : 'bg-slate-700'
+                }`}
                 title={`Card ${index + 1}`}
               />
             ))}
           </div>
         </section>
 
-        {/* Quiz panel */}
+
         <section className="panel rounded-lg p-5">
-          <h2 className="mb-3 text-lg font-semibold">Quiz</h2>
-          {safeQuiz.length === 0 ? (
-            <EmptyState title="No quiz available" body="Run an analysis to generate quiz questions." />
+          <h2 className="mb-3 text-lg font-semibold">
+            Quiz
+          </h2>
+
+          {quiz.length === 0 ? (
+            <EmptyState
+              title="No quiz available"
+              body="Run an analysis to generate quiz questions."
+            />
           ) : (
             <div className="grid gap-4">
-              {safeQuiz.map((item, i) => (
+              {quiz.map((item, i) => (
                 <div key={i} className="card p-4">
-                  <p className="font-medium">{item.question}</p>
+
+                  <p className="font-medium">
+                    {item.question || 'No question'}
+                  </p>
+
                   <div className="mt-3 grid gap-2">
-                    {item.options.map((option) => (
+                    {(Array.isArray(item.options)
+                      ? item.options
+                      : []
+                    ).map((option) => (
                       <div
                         key={option}
-                        className={`rounded-lg border px-3 py-2 text-sm ${option === item.correctAnswer
+                        className={`rounded-lg border px-3 py-2 text-sm ${
+                          option === item.correctAnswer
                             ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-100'
                             : 'border-slate-700 bg-slate-950/30 text-slate-300'
-                          }`}
+                        }`}
                       >
                         {option}
                       </div>
                     ))}
                   </div>
+
                 </div>
               ))}
             </div>
           )}
         </section>
+
       </div>
 
-      {/* Learning Outcome — new backend field shown in Learn tab too */}
+
       {learningOutcome && (
         <section className="panel rounded-lg p-4">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-200">
             <Sparkles size={16} /> Learning Outcome
           </div>
-          <p className="text-sm leading-6 text-slate-300">{learningOutcome}</p>
+
+          <p className="text-sm leading-6 text-slate-300">
+            {learningOutcome}
+          </p>
         </section>
       )}
+
     </div>
   );
 }
-
-// ─── RESULT SUMMARY ───────────────────────────────────────────────────────────
+/// ─── RESULT SUMMARY ───────────────────────────────────────────────────────────
 function ResultSummary({ analysis, isAnalyzing, step }) {
-  const { rootCause } = analysis.structuredResponse;
+  const structuredResponse = analysis?.structuredResponse || {};
+  const rootCause =
+    structuredResponse.rootCause || "No root cause returned yet.";
+
   return (
     <section className="panel rounded-lg p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -759,13 +821,15 @@ function ResultSummary({ analysis, isAnalyzing, step }) {
           <BrainCircuit size={18} />
           AI Analysis Panel
         </div>
+
         <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${analysis.severity === 'High'
-              ? 'bg-red-500/15 text-red-200'
-              : 'bg-amber-500/15 text-amber-200'
-            }`}
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            analysis?.severity === "High"
+              ? "bg-red-500/15 text-red-200"
+              : "bg-amber-500/15 text-amber-200"
+          }`}
         >
-          {analysis.severity}
+          {analysis?.severity || "Unknown"}
         </span>
       </div>
 
@@ -781,10 +845,11 @@ function ResultSummary({ analysis, isAnalyzing, step }) {
             {thinkingSteps.map((item, index) => (
               <div
                 key={item}
-                className={`flex items-center gap-3 rounded-lg border p-3 text-sm ${index <= step
-                    ? 'border-cyan-400/35 bg-cyan-400/10 text-cyan-100'
-                    : 'border-slate-700/50 bg-slate-900/40 text-slate-500'
-                  }`}
+                className={`flex items-center gap-3 rounded-lg border p-3 text-sm ${
+                  index <= step
+                    ? "border-cyan-400/35 bg-cyan-400/10 text-cyan-100"
+                    : "border-slate-700/50 bg-slate-900/40 text-slate-500"
+                }`}
               >
                 {index < step ? (
                   <CheckCircle2 size={17} />
@@ -793,6 +858,7 @@ function ResultSummary({ analysis, isAnalyzing, step }) {
                 ) : (
                   <Clock3 size={17} />
                 )}
+
                 {item}
               </div>
             ))}
@@ -805,41 +871,16 @@ function ResultSummary({ analysis, isAnalyzing, step }) {
             exit={{ opacity: 0 }}
             className="grid gap-3"
           >
-            <h2 className="text-xl font-semibold">{analysis.title}</h2>
-
-            {/* Bug Pattern — new backend field surfaced here */}
-            {analysis.bugPattern && (
-              <p className="text-sm text-slate-400">
-                Pattern: <span className="text-cyan-200">{analysis.bugPattern}</span>
-              </p>
-            )}
-
             <div className="card p-3">
               <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-100">
-                <AlertTriangle size={16} /> Probable Root Cause
+                <AlertTriangle size={16} />
+                Probable Root Cause
               </div>
-              <p className="text-sm leading-6 text-slate-300">{rootCause}</p>
-            </div>
 
-            {analysis.parsedError?.errorType && (
-              <div className="grid grid-cols-3 gap-2 text-xs text-slate-300 max-[620px]:grid-cols-1">
-                <div className="card p-2">
-                  <span className="text-slate-500">Type</span>
-                  <br />
-                  {analysis.parsedError.errorType}
-                </div>
-                <div className="card p-2">
-                  <span className="text-slate-500">Keyword</span>
-                  <br />
-                  {analysis.parsedError.keyword || 'N/A'}
-                </div>
-                <div className="card p-2">
-                  <span className="text-slate-500">Cause</span>
-                  <br />
-                  {analysis.parsedError.probableCause || 'N/A'}
-                </div>
-              </div>
-            )}
+              <p className="text-sm leading-6 text-slate-300">
+                {rootCause}
+              </p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -849,18 +890,27 @@ function ResultSummary({ analysis, isAnalyzing, step }) {
 
 // ─── FLOW PANEL ───────────────────────────────────────────────────────────────
 function FlowPanel({ flow, isAnalyzing }) {
+  const nodes = flow?.nodes || [];
+  const edges = flow?.edges || [];
+
   return (
     <section className="panel min-h-[480px] overflow-hidden rounded-lg">
       <div className="flex items-center justify-between border-b border-slate-700/60 p-4 max-[640px]:items-start max-[640px]:gap-2">
+
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Layers3 size={17} /> Debugging Workflow
         </div>
-        <span className="text-xs text-slate-400">Progressive cause-to-fix map</span>
+
+        <span className="text-xs text-slate-400">
+          Progressive cause-to-fix map
+        </span>
+
       </div>
+
       <div className="h-[430px]">
         <ReactFlow
-          nodes={isAnalyzing ? flow.nodes.slice(0, 3) : flow.nodes}
-          edges={isAnalyzing ? flow.edges.slice(0, 2) : flow.edges}
+          nodes={isAnalyzing ? nodes.slice(0, 3) : nodes}
+          edges={isAnalyzing ? edges.slice(0, 2) : edges}
           fitView
           proOptions={{ hideAttribution: true }}
         >
@@ -872,90 +922,146 @@ function FlowPanel({ flow, isAnalyzing }) {
   );
 }
 
+
 // ─── INSIGHTS ─────────────────────────────────────────────────────────────────
 function Insights({ analysis }) {
-  const { fix } = analysis.structuredResponse;
+  const fix =
+    analysis?.structuredResponse?.fix ||
+    'No fix explanation available yet.';
+
   return (
     <section className="panel overflow-hidden rounded-lg">
+
       <div className="border-b border-slate-700/60 p-4">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Sparkles size={17} /> Fix Explanation
         </div>
       </div>
+
       <div className="grid gap-3 p-4">
+
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           className="card glow-hover p-4"
         >
-          <p className="text-sm leading-7 text-slate-300">{fix}</p>
+          <p className="text-sm leading-7 text-slate-300">
+            {fix}
+          </p>
         </motion.div>
+
       </div>
+
     </section>
   );
 }
 
+
 // ─── CODE BLOCK ───────────────────────────────────────────────────────────────
 function CodeBlock({ title, code }) {
   const [copied, setCopied] = useState(false);
+
   const copyCode = async () => {
     await navigator.clipboard.writeText(code || '');
     setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
+
+    window.setTimeout(() => {
+      setCopied(false);
+    }, 1400);
   };
+
   return (
     <section className="panel overflow-hidden rounded-lg">
+
       <div className="flex items-center justify-between border-b border-slate-700/60 p-4">
+
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Code2 size={17} /> {title}
         </div>
+
         <button
           onClick={copyCode}
           className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:border-cyan-400 hover:text-cyan-200"
         >
           {copied ? 'Copied' : 'Copy'}
         </button>
+
       </div>
+
       <pre className="overflow-auto bg-slate-950/70 p-4 text-sm leading-7 text-slate-100">
-        <code>{code || '// No corrected code returned yet.'}</code>
+        <code>
+          {code || '// No corrected code returned yet.'}
+        </code>
       </pre>
+
     </section>
   );
 }
 
+
 // ─── ACTIVITY FEED ────────────────────────────────────────────────────────────
 function ActivityFeed({ history }) {
+  const safeHistory = Array.isArray(history) ? history : [];
+
   return (
     <section className="panel rounded-lg p-4">
+
       <div className="mb-4 flex items-center gap-2 text-sm font-semibold">
         <FileClock size={17} /> Live Activity
       </div>
+
       <div className="grid gap-3">
-        {history.slice(0, 4).map((item) => (
-          <div key={item.id} className="card flex items-center justify-between gap-3 p-3">
+
+        {safeHistory.slice(0, 4).map((item) => (
+          <div
+            key={item.id}
+            className="card flex items-center justify-between gap-3 p-3"
+          >
+
             <div className="min-w-0">
-              <div className="truncate text-sm font-medium">{item.title}</div>
+
+              <div className="truncate text-sm font-medium">
+                {item.title}
+              </div>
+
               <div className="mt-1 text-xs text-slate-400">
                 {item.tag} · {item.time}
               </div>
+
             </div>
+
             <span className="rounded-full bg-indigo-500/15 px-2 py-1 text-xs font-semibold text-indigo-200">
               {item.score}%
             </span>
+
           </div>
         ))}
+
       </div>
+
     </section>
   );
 }
+
 
 // ─── EMPTY STATE ──────────────────────────────────────────────────────────────
 function EmptyState({ title, body }) {
   return (
     <div className="grid place-items-center rounded-lg border border-dashed border-slate-700 p-10 text-center">
-      <BarChart3 className="mb-3 text-slate-500" size={28} />
-      <div className="font-semibold">{title}</div>
-      <p className="mt-1 max-w-sm text-sm text-slate-400">{body}</p>
+
+      <BarChart3
+        className="mb-3 text-slate-500"
+        size={28}
+      />
+
+      <div className="font-semibold">
+        {title}
+      </div>
+
+      <p className="mt-1 max-w-sm text-sm text-slate-400">
+        {body}
+      </p>
+
     </div>
   );
 }
